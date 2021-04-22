@@ -138,7 +138,9 @@ $rowsCount = ( $resultSet | Measure-Object ).Count;
              if($row -match $field) {
                  $value = Get-FieldValues -Item $item -FieldName $field -ValueToMatch $row.$field
                  $item.$field = $value
+                 Write-Host "ItemName: ($($item.Name)), FieldName:($($field)) FieldValue:($($value)) -Updated"
              }
+             
          }
         }
         else {
