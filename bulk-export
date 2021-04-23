@@ -1,0 +1,113 @@
+function Get-FieldValueByID
+{
+    Param([Sitecore.Data.Items.Item] $Item, [System.String] $FieldName)
+    Process
+    {
+        $field = $item.Fields[$fieldName]
+        $fieldTypes = $("multilist","droplist","treelist","droplink")
+        
+        if(!($fieldTypes -contains $field.TypeKey))
+        {
+            $output = $field.Value;
+        }
+        else
+        {
+            $query = $field.Source;
+            if($query.StartsWith("query"))
+            {
+                $list = $item.Axes.SelectItems($query.TrimStart("query:"))
+            }
+            $results = @()
+            $values = $field.Value.Split("{|}") | Where { $_ }
+            $values |  ForEach-Object { 
+                $this = $_;
+                $MatchingItem = $list | Where-Object { $_.ID -match $this } | Select -First 1
+                if($MatchingItem)
+                {            
+                    $results += $MatchingItem.Name.ToString()
+                }
+            }
+            $output = $($results -join "_");
+        }
+    }
+    End
+    {
+        return $output
+    }
+}
+
+$itemList = Get-ChildItem "master:\sitecore\content\Marketplace-US\Home\App Products" -Recurse | Where-Object { $_.TemplateID -eq "{15F0049D-0406-40DE-946C-2E28425B250F}" }
+$Report = @()
+ 
+ForEach ($item in $itemList) {
+   $data = [PSCustomObject]@{ 
+		ID = $item.ID
+		Name = $item.Name
+		ProductName = $item["Product Name"]
+		ShortDescription = $item["Short Description"]
+		LongDescription = $item["Long Description"]
+		KeyFeatureDescription = $item["Key Feature Description"]
+		IsEnquireOnly = $item["Is Enquire-only"]
+		HeroImage = $item["Hero Image"]
+		ImageGalleryCarousel = Get-FieldValueByID -Item $item -FieldName "Image Gallery Carousel"
+		Badge = $item["Badge"]
+		TermsAndConditionsUrl = $item["Terms And Conditions Url"]
+		ProductNumber = $item["Product Number"]
+		Version = $item["Version"]
+		Size = $item["Size"]
+		IsEdison = $item["Is Edison"]
+		ServiceShopUrl = $item["Service Shop Url"] 
+		Priority = Get-FieldValueByID -Item $item -FieldName "Priority"
+		SoftwareDownloadOptions = Get-FieldValueByID -Item $item -FieldName "Software Download Options"
+		ActionButtons = Get-FieldValueByID -Item $item -FieldName "ActionButtons"
+		Languages = Get-FieldValueByID -Item $item -FieldName "Languages"
+		MedicalSpecialties = Get-FieldValueByID -Item $item -FieldName "Medical Specialties"
+		ProductFamilies = Get-FieldValueByID -Item $item -FieldName "Product Families"
+		Functionalities = Get-FieldValueByID -Item $item -FieldName "Functionalities"
+		Anatomy= Get-FieldValueByID -Item $item -FieldName "Anatomy"
+		Developer= Get-FieldValueByID -Item $item -FieldName "Developer"
+		ProductLines= Get-FieldValueByID -Item $item -FieldName "Product Lines"
+		CompatibleDevices = Get-FieldValueByID -Item $item -FieldName "Compatible Devices"
+		BusinessCategory = Get-FieldValueByID -Item $item -FieldName "Business Category"
+		Country = Get-FieldValueByID -Item $item -FieldName "Country"
+   }
+    $Report += $data
+}
+ 
+$reportProps = @{
+    Title = "Export Products"
+    InfoTitle = "list of products available in marketplace"
+    InfoDescription = "Total entries found: $($itemList.length)"
+    PageSize = 10
+}
+ 
+$Report | Show-ListView @reportProps -Property `
+  @{ Name = "ID"; Expression = { $_.ID } },
+  @{ Name = "Name"; Expression = { $_.Name} },
+	@{ Name = "Product Name"; Expression = { $_.ProductName} },
+	@{ Name = "Short Description"; Expression = { $_.ShortDescription} },
+	@{ Name = "Key Feature Description"; Expression = { $_.KeyFeatureDescription} },
+	@{ Name = "Is Enquire-only"; Expression = { $_.IsEnquireOnly} },
+	@{ Name = "Hero Image"; Expression = { $_.HeroImage} },
+	@{ Name = "Image Gallery Carousel"; Expression = { $_.ImageGalleryCarousel} },
+	@{ Name = "Badge"; Expression = { $_.Badge} },
+	@{ Name = "Terms And Conditions Url"; Expression = { $_.TermsAndConditionsUrl} },
+	@{ Name = "Product Number"; Expression = { $_.ProductNumber} },
+	@{ Name = "Version"; Expression = { $_.Version} },
+	@{ Name = "Size"; Expression = { $_.Size} },
+	@{ Name = "Is Edison"; Expression = { $_.IsEdison} },
+	@{ Name = "ServiceShopUrl"; Expression = { $_.ServiceShopUrl} },
+	@{ Name = "Software Download Options"; Expression = { $_.SoftwareDownloadOptions} },
+	@{ Name = "ActionButtons"; Expression = { $_.ActionButtons} },
+  @{ Name = "Languages"; Expression = { $_.Languages} },
+	@{ Name = "Medical Specialties"; Expression = { $_.MedicalSpecialties} },
+	@{ Name = "Developer"; Expression = { $_.Developer} },
+	@{ Name = "Product Families"; Expression = { $_.ProductFamilies} },
+	@{ Name = "Functionalities"; Expression = { $_.Functionalities} },
+	@{ Name = "Business Category"; Expression = { $_.BusinessCategory} },
+	@{ Name = "Anatomy"; Expression = { $_.Anatomy} },
+	@{ Name = "Product Lines"; Expression = { $_.ProductLines} },
+	@{ Name = "Compatible Devices"; Expression = { $_.CompatibleDevices} },
+	@{ Name = "Country"; Expression = { $_.Country} }
+ 
+Close-Window
