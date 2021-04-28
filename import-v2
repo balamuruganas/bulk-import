@@ -25,8 +25,8 @@ function Get-FieldValues
             $results = @()
             $values = $ValueToMatch.TrimEnd(",").Split("{,}")
             $values |  ForEach-Object { 
-                $this = $_;
-                $MatchingItem = $list | Where-Object { $_.Name -match $this.Trim() } | Select -First 1
+                $this = $_.TrimEnd("]");
+                $MatchingItem = $list | Where-Object { $_.Name -eq $this.Trim() } | Select -First 1
                 if($MatchingItem)
                 {            
                     $results += $MatchingItem.ID.ToString()
@@ -52,7 +52,7 @@ if($filePath -eq "cancel"){
     exit
 }
 
-$resultSet =  Import-Csv $filePath -Encoding UTF8
+$resultSet =  Import-Csv $filePath
 
 
 $rowsCount = ( $resultSet | Measure-Object ).Count;
@@ -72,7 +72,7 @@ $rowsCount = ( $resultSet | Measure-Object ).Count;
         $isUpdate = $row."Update status" -and $row."Update status" -eq "Done";
         if($isUpdate)
         {
-            $item = $itemList | Where-Object { $_.Name -match $row.Name} | Select -First 1 
+            $item = $itemList | Where-Object { $_.Name -eq $row.Name} | Select -First 1 
             
             if ($item){
              $fields = $item | Get-ItemField | Where-Object { $columns -contains $_ }
