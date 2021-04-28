@@ -1,0 +1,112 @@
+$database ="master"
+
+function Get-FieldValues
+{
+    Param([Sitecore.Data.Items.Item] $Item, [System.String] $FieldName, [System.String] $ValueToMatch)
+    Process
+    {
+        Write-Host $FieldName
+        $field = $item.Fields[$fieldName]
+        $fieldTypes = $("multilist","droplist","treelist", "droplink")
+        if(!($fieldTypes -contains $field.TypeKey))
+        {
+            $output = $ValueToMatch;
+        }
+        else
+        {
+            $query = $field.Source;
+            Write-Host $query
+            if($query.StartsWith("query") -or  $query -ne "")
+            {
+                if($query.EndsWith("*"))
+                {
+                    $query = $query.TrimStart("query:") 
+                }
+                if(!$query.StartsWith("/"))
+                {
+                    $query = "$($database):/$($query)";
+                }
+                
+                $list = gci -Path $query
+            }
+            $results = @()
+            $values = $ValueToMatch.TrimEnd(",").Split("{,}")
+            Write-Host $ValueToMatch
+            $values |  ForEach-Object { 
+                $this = $_.Trim().TrimEnd("]");
+                Write-Host $this
+                $MatchingItem = $list | Where-Object { $_.Name -eq $this } | Select -First 1
+                
+                if($MatchingItem)
+                {            
+                    $results += $MatchingItem.ID.ToString()
+                }
+            }
+            $output = $($results -join "|");
+        }
+    }
+    End
+    {
+        return $output
+    }
+}
+
+
+#Upload the file on the Server in temporary folder
+#It will create the folder if it is not found
+$dataFolder = [Sitecore.Configuration.Settings]::DataFolder
+$tempFolder = $dataFolder + "\temp\upload"
+$filePath = Receive-File -Path $tempFolder -overwrite
+
+if($filePath -eq "cancel"){
+    exit
+}
+
+$resultSet =  Import-Csv $filePath
+
+$itemList = Get-ChildItem "master:\sitecore\content\Marketplace-US\Home\App Products" -Recurse | Where-Object { $_.TemplateID -eq "{15F0049D-0406-40DE-946C-2E28425B250F}" }
+
+$rowsCount = ( $resultSet | Measure-Object ).Count;
+
+    if($rowsCount -le 0){
+        Remove-Item $filePath
+        exit
+    }
+    
+    Write-Log "Bulk Update Started!";
+    
+    $columns = $resultSet | Get-Member -MemberType NoteProperty | Where-Object { "Name","Id" -notcontains $_.Name } | Select-Object -ExpandProperty Name
+    
+    $Step =0
+    
+    foreach ( $row in $resultSet ) {
+        $isUpdate = $row."Update status" -and $row."Update status" -eq "Done";
+        if($isUpdate)
+        {
+            $item = $itemList | Where-Object { $_.Name -eq $row.Name} | Select -First 1 
+            
+            if ($item){
+             $fields = $item | Get-ItemField | Where-Object { $columns -contains $_ }
+    
+             foreach($field in $fields){
+                     $value = Get-FieldValues -Item $item -FieldName $field -ValueToMatch $row.$field
+                     $item.Editing.BeginEdit()
+                     $item.Fields[$field].Value=$value;
+                     $item.Editing.EndEdit();
+                 Write-Progress $item.Name -Activity "Importing..." -PercentComplete ($Step / $rowsCount * 100)
+                 
+             }
+            }
+            else {
+                $logThis =  "Couldn't find: " + $row.ItemPath + " with Language Version: " + $row.Language 
+                $logThis
+                Write-Log $logThis
+            }
+        }
+    }
+    
+    $logInfo = "Bulk Update is Completed!";
+    $logInfo
+    Write-Log $logInfo
+
+Remove-Item $filePath
