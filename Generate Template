@@ -1,0 +1,40 @@
+$templateItem = Get-Item .
+
+function Get-FieldText($field){
+    Write-Host "`tpublic string $(Get-ValidName $field.Name) { get; set; }"
+}
+
+function Get-FieldID($field){
+    Write-Host "`t`tpublic static ID $(Get-ValidName $field.Name) = new ID(`"$($field.ID)`");"
+}
+
+function Get-FieldValue($field,$templateItem){
+    Write-Host "`t`t$(Get-ValidName $field.Name) = item.Fields[Templates.$(Get-ValidName $templateItem.DisplayName).Fields.$(Get-ValidName $field.Name)]?.Value;"
+}
+
+function Get-ValidName($name){
+    $name.Replace(' ','')
+}
+
+$fields = Get-ChildItem -Path $templateItem.Paths.Path -Recurse | ?{ $_.TemplateName -eq "Template field"}
+
+Write-Host "public struct $(Get-ValidName $templateItem.DisplayName)"
+Write-Host "{"
+    Write-Host "`tpublic static ID ID = new ID(`"$($templateItem.ID)`");"
+    Write-Host "`tpublic struct Fields"
+    Write-Host "`t{"
+    $fields | %{ Get-FieldID $_ }    
+    Write-Host "`t}"
+Write-Host "}"
+
+Write-Host "public class $(Get-ValidName $templateItem.DisplayName)"
+Write-Host "{"
+	$fields | %{ Get-FieldText $_ }  
+Write-Host "`tpublic void Initialize(Item item)"
+Write-Host "`t{"
+	$fields | %{ Get-FieldValue $_ $templateItem}  
+Write-Host "`t}"
+Write-Host "}"
+
+Show-Result -Text -Width 900
+Close-Window
